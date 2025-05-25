@@ -1,68 +1,75 @@
 import streamlit as st
 import pandas as pd
 import os
-from transformers import pipeline
+import time
+from transformers import pipeline, AutoTokenizer
 
 # Configuración especial para Render
 PORT = int(os.environ.get("PORT", 8501))
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", False)
+DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
-# Solución para el error 404
-if RENDER_EXTERNAL_URL:
-    st.set_page_config(
-        page_title="Analizador de Sentimientos",
-        layout="wide",
-        page_icon="📊"
-    )
-else:
-    st.set_page_config(
-        page_title="Analizador de Sentimientos",
-        layout="wide"
-    )
-
-# Cargar modelo optimizado
+# Inicialización robusta
 @st.cache_resource
-def load_model():
-    try:
+def init_model():
+    if DEBUG:
+        st.warning("⚠️ Modo DEBUG activado (modelo ligero)")
+        return pipeline(
+            "text-classification",
+            model="finiteautomata/bertweet-base-sentiment-analysis",
+            device=-1,
+            truncation=True,
+            max_length=64
+        )
+    else:
         return pipeline(
             "sentiment-analysis",
             model="distilbert-base-uncased",
-            device=-1,  # Fuerza CPU
+            device=-1,
             truncation=True,
-            max_length=128  # Reduce memoria
+            max_length=128
         )
-    except Exception as e:
-        st.error(f"Error al cargar modelo: {str(e)}")
-        st.stop()
 
-# Cargar datos
-@st.cache_data
+# Interfaz minimalista
+st.set_page_config(
+    page_title="Analizador",
+    page_icon="📊",
+    layout="centered"
+)
+
+st.title("Análisis de Sentimientos")
+model = init_model()
+
+# Carga de datos optimizada
 def load_data():
     try:
-        csv_path = os.path.join(os.path.dirname(__file__), "opiniones_clientes.csv")
-        return pd.read_csv(csv_path, usecols=['Opinion']).dropna().head(50)  # Limita a 50 registros
+        return pd.read_csv(
+            "opiniones_clientes.csv",
+            usecols=['Opinion'],
+            nrows=50  # Limita a 50 registros
+        ).dropna()
     except Exception as e:
-        st.error(f"Error al cargar datos: {str(e)}")
+        st.error(f"Error: {str(e)}")
         st.stop()
 
-# --- Interfaz ---
-model = load_model()
-st.title("📊 Analizador Optimizado para Render")
+if st.button("Analizar"):
+    with st.spinner("Procesando..."):
+        try:
+            df = load_data()
+            start_time = time.time()
+            
+            # Procesamiento por lotes pequeños
+            results = []
+            for i, text in enumerate(df['Opinion'].astype(str)):
+                results.append(model(text[:128])[0])
+                if DEBUG and i >= 2:  # Solo 3 ejemplos en debug
+                    break
+            
+            st.success(f"Análisis completado en {time.time()-start_time:.2f}s")
+            st.json(results[:3] if DEBUG else results)
+            
+        except Exception as e:
+            st.error(f"Fallo crítico: {str(e)}")
+            st.stop()
 
-if st.button("Iniciar Análisis"):
-    df = load_data()
-    with st.spinner("Analizando (puede tomar unos segundos)..."):
-        results = []
-        for text in df['Opinion'].astype(str):
-            results.append(model(text[:128])[0]['label'])
-        df['Sentimiento'] = results
-    
-    st.dataframe(df)
-    st.success("¡Análisis completado!")
-
-# Configuración crítica para Render
 if __name__ == "__main__":
-    if RENDER_EXTERNAL_URL:
-        os.system(f"streamlit run app.py --server.port={PORT} --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false")
-    else:
-        os.system(f"streamlit run app.py --server.port={PORT} --server.address=0.0.0.0")
+    os.system(f"streamlit run app.py --server.port={PORT} --server.address=0.0.0.0 --server.headless=true --server.enableXsrfProtection=false")
