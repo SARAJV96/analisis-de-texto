@@ -11,140 +11,144 @@ import os
 
 # Configuración inicial
 nltk.download('stopwords', quiet=True)
-stop_words = set(stopwords.words('spanish'))  # Cambia a 'english' si es necesario
+stop_words = set(stopwords.words('spanish'))  # Cambiar a 'english' si es necesario
 
-# --- Configuración para Render ---
-PORT = int(os.environ.get("PORT", 8501))
-st.set_page_config(page_title="Análisis Completo", layout="wide")
+# --- Configuración de la página ---
+st.set_page_config(
+    page_title="📊 Analizador de Sentimientos",
+    page_icon="📈",
+    layout="wide"
+)
 
 # --- Carga optimizada de datos ---
 @st.cache_data
 def cargar_datos():
     try:
-        csv_path = os.path.join("opiniones_clientes.csv")
+        if not os.path.exists("data/opiniones_clientes.csv"):
+            st.error("❌ Archivo no encontrado en: `data/opiniones_clientes.csv`")
+            st.info("📌 Por favor, sube un archivo CSV con una columna llamada **'Opinion'**")
+            return None
         
-        # Crear carpeta data si no existe
-        os.makedirs("data", exist_ok=True)
-        
-        if not os.path.exists(csv_path):
-            st.error(f"Archivo no encontrado: {os.path.abspath(csv_path)}")
-            st.stop()
-            
         df = pd.read_csv(
-            csv_path,
+            "data/opiniones_clientes.csv",
             usecols=['Opinion'],
             encoding='utf-8',
             on_bad_lines='skip'
         ).dropna()
         
-        return df.sample(min(100, len(df)))  # Limitar a 100 registros
+        return df.sample(min(100, len(df)))  # Limitar a 100 registros para pruebas
     
     except Exception as e:
-        st.error(f"Error al cargar datos: {str(e)}")
-        st.stop()
+        st.error(f"❌ Error al cargar datos: {str(e)}")
+        return None
 
-# --- Modelo ligero para Render ---
+# --- Carga del modelo (optimizado para CPU) ---
 @st.cache_resource
 def cargar_modelo():
     return pipeline(
         "sentiment-analysis",
-        model="finiteautomata/bertweet-base-sentiment-analysis",
+        model="finiteautomata/bertweet-base-sentiment-analysis",  # Modelo ligero
         device=-1,  # Forzar CPU
         truncation=True,
-        max_length=128
+        max_length=128  # Reducir carga
     )
 
-# --- Procesamiento de texto ---
+# --- Limpieza de texto para WordCloud ---
 def limpiar_texto(texto):
     texto = str(texto).lower()
-    texto = re.sub(r'[^\w\s]', '', texto)
-    texto = ' '.join([word for word in texto.split() if word not in stop_words])
+    texto = re.sub(r'[^\w\s]', '', texto)  # Eliminar puntuación
+    texto = ' '.join([word for word in texto.split() if word not in stop_words])  # Quitar stopwords
     return texto
 
-# --- Visualizaciones ---
+# --- Visualización de gráficos ---
 def mostrar_graficos(df):
     # 1. Distribución de sentimientos
-    with st.container():
-        st.subheader("📈 Distribución de Sentimientos")
-        fig1, ax1 = plt.subplots()
-        df['Sentimiento'].value_counts().plot(kind='bar', color=['green', 'blue', 'red'], ax=ax1)
-        st.pyplot(fig1)
-        plt.close(fig1)
+    st.subheader("📊 Distribución de Sentimientos")
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    df['Sentimiento'].value_counts().plot(
+        kind='bar',
+        color=['#4CAF50', '#2196F3', '#F44336'],  # Verde, Azul, Rojo
+        ax=ax1
+    )
+    plt.xticks(rotation=0)
+    st.pyplot(fig1)
+    plt.close(fig1)
+
+    # 2. Nube de palabras
+    st.subheader("☁️ Nube de Palabras")
+    texto_completo = ' '.join(df['Opinion'].astype(str))
+    texto_limpio = limpiar_texto(texto_completo)
     
-    # 2. WordCloud
-    with st.container():
-        st.subheader("☁️ Nube de Palabras (Opiniones)")
-        all_text = ' '.join(df['Opinion'].astype(str))
-        cleaned_text = limpiar_texto(all_text)
-        
-        wordcloud = WordCloud(
-            width=800,
-            height=400,
-            background_color='white',
-            stopwords=stop_words
-        ).generate(cleaned_text)
-        
-        fig2, ax2 = plt.subplots()
-        ax2.imshow(wordcloud, interpolation='bilinear')
-        ax2.axis('off')
-        st.pyplot(fig2)
-        plt.close(fig2)
+    wordcloud = WordCloud(
+        width=800,
+        height=400,
+        background_color='white',
+        stopwords=stop_words
+    ).generate(texto_limpio)
     
-    # 3. Palabras más frecuentes
-    with st.container():
-        st.subheader("🔠 Palabras Más Frecuentes")
-        words = cleaned_text.split()
-        word_counts = Counter(words).most_common(15)
-        
-        fig3, ax3 = plt.subplots()
-        pd.DataFrame(word_counts, columns=['Palabra', 'Frecuencia']).plot(
-            kind='barh', 
-            x='Palabra',
-            color='skyblue',
-            ax=ax3
-        )
-        st.pyplot(fig3)
-        plt.close(fig3)
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+    ax2.imshow(wordcloud, interpolation='bilinear')
+    ax2.axis('off')
+    st.pyplot(fig2)
+    plt.close(fig2)
+
+    # 3. Top 15 palabras más frecuentes
+    st.subheader("🔠 Palabras Clave Más Usadas")
+    palabras = texto_limpio.split()
+    contador = Counter(palabras).most_common(15)
+    
+    fig3, ax3 = plt.subplots(figsize=(10, 6))
+    pd.DataFrame(contador, columns=['Palabra', 'Frecuencia']).plot(
+        kind='barh',
+        x='Palabra',
+        color='#2196F3',
+        ax=ax3
+    )
+    plt.xlabel('Frecuencia')
+    st.pyplot(fig3)
+    plt.close(fig3)
 
 # --- Interfaz principal ---
 def main():
-    st.title("📊 Análisis Completo de Opiniones")
-    
+    st.title("📊 Analizador de Sentimientos en Tiempo Real")
+    st.markdown("---")
+
     # Carga de datos
-    with st.spinner("Cargando datos..."):
-        df = cargar_datos()
-    
+    df = cargar_datos()
+    if df is None:
+        return  # Detener ejecución si no hay datos
+
     # Carga del modelo
-    with st.spinner("Cargando modelo de análisis..."):
-        clasificador = cargar_modelo()
-    
+    modelo = cargar_modelo()
+
     # Análisis de sentimientos
-    with st.spinner("Analizando opiniones..."):
+    with st.spinner("🔍 Analizando opiniones..."):
         df['Sentimiento'] = df['Opinion'].apply(
-            lambda x: clasificador(str(x)[:128])[0]['label']
+            lambda x: modelo(str(x)[:128])[0]['label']
         )
-        df['Sentimiento'] = df['Sentimiento'].map(
-            {'POS': '⭐ Positivo', 'NEU': '🔄 Neutro', 'NEG': '⚠️ Negativo'}
-        )
-    
-    # Mostrar datos
-    with st.expander("🗃️ Datos completos", expanded=False):
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            height=400
-        )
-    
+        df['Sentimiento'] = df['Sentimiento'].map({
+            'POS': '⭐ Positivo',
+            'NEU': '🔄 Neutro',
+            'NEG': '⚠️ Negativo'
+        })
+
+    # Mostrar tabla de resultados
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        height=400
+    )
+
     # Mostrar gráficos
     mostrar_graficos(df)
-    
-    # Botón de actualización
-    if st.button("🔄 Actualizar Análisis"):
+
+    # Botón para reiniciar análisis
+    if st.button("🔄 Actualizar Datos"):
         st.cache_data.clear()
         st.cache_resource.clear()
         st.rerun()
 
-# --- Configuración para Render ---
+# --- Ejecutar la app ---
 if __name__ == "__main__":
-    os.system(f"streamlit run {__file__} --server.port={PORT} --server.address=0.0.0.0 --server.headless=true")
+    main()
