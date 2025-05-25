@@ -1,4 +1,5 @@
-from transformers import pipeline
+import os
+os.system("fuser -k 8501/tcp")  # Libera el puerto por si queda bloqueadofrom transformers import pipeline
 import os
 
 # Cargar el modelo inmediatamente al iniciar
