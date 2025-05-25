@@ -1,4 +1,7 @@
 #!/bin/bash
-# Limpieza de memoria antes de iniciar
-python3 -c "import torch; torch.cuda.empty_cache()" 2>/dev/null || true
-streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
+# Limpia cache de PyTorch
+python -c "import torch; torch.cuda.empty_cache()" 2>/dev/null || true
+
+# Ejecuta Streamlit con configuración especial para Render
+export RENDER_EXTERNAL_URL=true
+streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false
