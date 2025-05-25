@@ -1,1 +1,2 @@
-streamlit run app.py --server.port=10000 --server.address=0.0.0.0
+# start.sh (asegúrate de que sea ejecutable: chmod +x start.sh)
+streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
