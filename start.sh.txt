@@ -1,15 +1,14 @@
 #!/bin/bash
-# Pre-limpieza
+# Limpieza de memoria
 python -c "import torch; torch.cuda.empty_cache()" 2>/dev/null || true
 
-# Variables clave
-export DEBUG=false
-export PYTHONUNBUFFERED=TRUE
+# Instalación segura de dependencias
+pip install --upgrade pip
+pip install -r requirements.txt --no-cache-dir
 
-# Inicio con timeout extendido
-timeout 300 streamlit run app.py \
+# Inicio de la aplicación
+streamlit run app.py \
     --server.port=$PORT \
     --server.address=0.0.0.0 \
     --server.headless=true \
-    --server.enableCORS=false \
-    --server.enableXsrfProtection=false
+    --server.enableCORS=false
