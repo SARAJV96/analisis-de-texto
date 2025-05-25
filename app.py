@@ -7,11 +7,12 @@ from wordcloud import WordCloud
 from collections import Counter
 from transformers import pipeline
 import nltk
-import os
+import requests
+from io import StringIO
 
 # Configuración inicial
 nltk.download('stopwords', quiet=True)
-stop_words = set(stopwords.words('spanish'))  # Cambiar a 'english' si es necesario
+stop_words = set(stopwords.words('spanish'))
 
 # --- Configuración de la página ---
 st.set_page_config(
@@ -20,17 +21,20 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- Carga optimizada de datos ---
+# --- Carga desde GitHub ---
 @st.cache_data
 def cargar_datos():
     try:
-        if not os.path.exists("data/opiniones_clientes.csv"):
-            st.error("❌ Archivo no encontrado en: `data/opiniones_clientes.csv`")
-            st.info("📌 Por favor, sube un archivo CSV con una columna llamada **'Opinion'**")
-            return None
+        # URL raw de GitHub (usa el enlace directo al archivo raw)
+        github_url = "https://raw.githubusercontent.com/SARAJV96/analisis-de-texto/main/opiniones_clientes.csv"
         
+        # Descargar el archivo
+        response = requests.get(github_url)
+        response.raise_for_status()  # Verifica errores HTTP
+        
+        # Leer CSV directamente desde la respuesta
         df = pd.read_csv(
-            "data/opiniones_clientes.csv",
+            StringIO(response.text),
             usecols=['Opinion'],
             encoding='utf-8',
             on_bad_lines='skip'
@@ -40,34 +44,33 @@ def cargar_datos():
     
     except Exception as e:
         st.error(f"❌ Error al cargar datos: {str(e)}")
+        st.info("ℹ️ Verifica que la URL del CSV en GitHub sea correcta y pública")
         return None
 
-# --- Carga del modelo (optimizado para CPU) ---
+# --- Resto del código permanece igual ---
 @st.cache_resource
 def cargar_modelo():
     return pipeline(
         "sentiment-analysis",
-        model="finiteautomata/bertweet-base-sentiment-analysis",  # Modelo ligero
-        device=-1,  # Forzar CPU
+        model="finiteautomata/bertweet-base-sentiment-analysis",
+        device=-1,
         truncation=True,
-        max_length=128  # Reducir carga
+        max_length=128
     )
 
-# --- Limpieza de texto para WordCloud ---
 def limpiar_texto(texto):
     texto = str(texto).lower()
-    texto = re.sub(r'[^\w\s]', '', texto)  # Eliminar puntuación
-    texto = ' '.join([word for word in texto.split() if word not in stop_words])  # Quitar stopwords
+    texto = re.sub(r'[^\w\s]', '', texto)
+    texto = ' '.join([word for word in texto.split() if word not in stop_words])
     return texto
 
-# --- Visualización de gráficos ---
 def mostrar_graficos(df):
     # 1. Distribución de sentimientos
     st.subheader("📊 Distribución de Sentimientos")
     fig1, ax1 = plt.subplots(figsize=(8, 4))
     df['Sentimiento'].value_counts().plot(
         kind='bar',
-        color=['#4CAF50', '#2196F3', '#F44336'],  # Verde, Azul, Rojo
+        color=['#4CAF50', '#2196F3', '#F44336'],
         ax=ax1
     )
     plt.xticks(rotation=0)
@@ -108,7 +111,6 @@ def mostrar_graficos(df):
     st.pyplot(fig3)
     plt.close(fig3)
 
-# --- Interfaz principal ---
 def main():
     st.title("📊 Analizador de Sentimientos en Tiempo Real")
     st.markdown("---")
@@ -116,7 +118,7 @@ def main():
     # Carga de datos
     df = cargar_datos()
     if df is None:
-        return  # Detener ejecución si no hay datos
+        return
 
     # Carga del modelo
     modelo = cargar_modelo()
@@ -132,23 +134,14 @@ def main():
             'NEG': '⚠️ Negativo'
         })
 
-    # Mostrar tabla de resultados
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        height=400
-    )
-
-    # Mostrar gráficos
+    # Mostrar resultados
+    st.dataframe(df, use_container_width=True, hide_index=True, height=400)
     mostrar_graficos(df)
 
-    # Botón para reiniciar análisis
     if st.button("🔄 Actualizar Datos"):
         st.cache_data.clear()
         st.cache_resource.clear()
         st.rerun()
 
-# --- Ejecutar la app ---
 if __name__ == "__main__":
     main()
