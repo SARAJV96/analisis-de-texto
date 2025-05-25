@@ -1,2 +1,4 @@
 #!/bin/bash
-streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.fileWatcherType=none
+# Limpieza de memoria antes de iniciar
+python3 -c "import torch; torch.cuda.empty_cache()" 2>/dev/null || true
+streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
