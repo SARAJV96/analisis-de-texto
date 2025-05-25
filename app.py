@@ -1,4 +1,12 @@
-import streamlit as st
+from transformers import pipeline
+import os
+
+# Cargar el modelo inmediatamente al iniciar
+@st.cache_resource
+def load_model():
+    return pipeline("sentiment-analysis", model="distilbert-base-uncased")
+
+classifier = load_model()  # Forzar carga tempranaimport streamlit as st
 import pandas as pd
 import os
 from transformers import pipeline
