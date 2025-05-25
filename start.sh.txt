@@ -1,7 +1,15 @@
 #!/bin/bash
-# Limpia cache de PyTorch
+# Pre-limpieza
 python -c "import torch; torch.cuda.empty_cache()" 2>/dev/null || true
 
-# Ejecuta Streamlit con configuración especial para Render
-export RENDER_EXTERNAL_URL=true
-streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false
+# Variables clave
+export DEBUG=false
+export PYTHONUNBUFFERED=TRUE
+
+# Inicio con timeout extendido
+timeout 300 streamlit run app.py \
+    --server.port=$PORT \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false
