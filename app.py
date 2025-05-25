@@ -26,7 +26,7 @@ def cargar_datos():
             st.warning("Se creó la carpeta 'data' porque no existía")
         
         # Verificar si el archivo existe
-        csv_path = os.path.join("data", "opiniones_clientes.csv")
+        csv_path = os.path.join("opiniones_clientes.csv")
         if not os.path.exists(csv_path):
             st.error(f"Archivo no encontrado en: {csv_path}")
             st.info("Por favor sube el archivo CSV a la carpeta 'data'")
