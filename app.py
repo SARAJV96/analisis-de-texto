@@ -21,7 +21,7 @@ st.set_page_config(page_title="Análisis Completo", layout="wide")
 @st.cache_data
 def cargar_datos():
     try:
-        csv_path = os.path.join("data", "opiniones_clientes.csv")
+        csv_path = os.path.join("opiniones_clientes.csv")
         
         # Crear carpeta data si no existe
         os.makedirs("data", exist_ok=True)
