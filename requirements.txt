@@ -1,6 +1,5 @@
 streamlit==1.28.0
 pandas==2.0.3
 transformers==4.34.0
-torch==2.0.1 ; sys_platform != 'darwin'  # Versión estándar para Linux/Windows
-torch==2.0.1 ; sys_platform == 'darwin'  # Versión para macOS
+torch==2.0.1
 sentencepiece==0.1.99
